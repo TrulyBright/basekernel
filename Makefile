@@ -20,13 +20,13 @@ build-userspace: $(USER_PROGRAMS)
 build-cdrom-image: basekernel.iso
 
 kernel/basekernel.img: $(KERNEL_SOURCES) $(LIBRARY_HEADERS)
-	cd kernel && make
+	cd kernel && make -j$(nproc)
 
 library/baselib.a: $(LIBRARY_SOURCES) $(LIBRARY_HEADERS)
-	cd library && make
+	cd library && make -j$(nproc)
 
 $(USER_PROGRAMS): $(USER_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
-	cd user && make
+	cd user && make -j$(nproc)
 
 image: kernel/basekernel.img $(USER_PROGRAMS)
 	rm -rf image
@@ -49,6 +49,6 @@ debug: basekernel.iso disk.img
 
 clean:
 	rm -rf basekernel.iso image disk.img
-	cd kernel && make clean
-	cd library && make clean
-	cd user && make clean
+	cd kernel && make -j$(nproc) clean
+	cd library && make -j$(nproc) clean
+	cd user && make -j$(nproc) clean

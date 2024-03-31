@@ -6,58 +6,57 @@ GDB="gdb-9.1"
 
 CURRDIR=`pwd`
 PREFIX=$CURRDIR/cross
-WORKDIR=`mktemp -d`
+WORKDIR="sources"
 
 echo "Installing cross-compiler to $PREFIX"
 echo "Building in directory $WORKDIR"
 
+mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 
 # get and extract sources
 
-if [ ! -d $BINUTILS ]
-then
-	curl --insecure -O https://ftp.gnu.org/gnu/binutils/$BINUTILS.tar.gz
-	tar -zxf $BINUTILS.tar.gz
-fi
+# if [ ! -d $BINUTILS ]
+# then
+# 	curl --insecure -O https://ftp.gnu.org/gnu/binutils/$BINUTILS.tar.gz
+# 	tar -zxf $BINUTILS.tar.gz
+# fi
 
-if [ ! -d $GCC ]
-then
-	curl --insecure -O https://ftp.gnu.org/gnu/gcc/$GCC/$GCC.tar.gz
-	tar -zxf $GCC.tar.gz
-fi
+# if [ ! -d $GCC ]
+# then
+# 	curl --insecure -O https://ftp.gnu.org/gnu/gcc/$GCC/$GCC.tar.gz
+# 	tar -zxf $GCC.tar.gz
+# fi
 
-if [ ! -d $GDB ]
-then
-	curl --insecure -O http://ftp.gnu.org/gnu/gdb/$GDB.tar.gz
-	tar -zxf $GDB.tar.gz
-fi
+# if [ ! -d $GDB ]
+# then
+# 	curl --insecure -O http://ftp.gnu.org/gnu/gdb/$GDB.tar.gz
+# 	tar -zxf $GDB.tar.gz
+# fi
 
 # build and install libtools
 cd $BINUTILS
 ./configure --prefix="$PREFIX" --target=i686-elf --disable-nls --disable-werror --with-sysroot
-make && make install
+make -j$(nproc) && make -j$(nproc) install
 cd ..
 
 # download gcc prerequisites
-cd $GCC
-./contrib/download_prerequisites
-cd ..
+# cd $GCC
+# ./contrib/download_prerequisites
+# cd ..
 
 # build and install gcc
 mkdir $GCC-elf-objs
 cd $GCC-elf-objs
 ../$GCC/configure --prefix="$PREFIX" --target=i686-elf --disable-nls --enable-languages=c --without-headers
-make all-gcc && make all-target-libgcc && make install-gcc && make install-target-libgcc
+make -j$(nproc) all-gcc && make -j$(nproc) all-target-libgcc && make -j$(nproc) install-gcc && make -j$(nproc) install-target-libgcc
 cd ..
 
 # build and install GDB
 mkdir ${GDB}-build
 cd ${GDB}-build
 ../${GDB}/configure --prefix="$PREFIX" --target=i686-elf
-make && make install
+make -j$(nproc) && make -j$(nproc) install
 cd ..
 
 cd "$CURRDIR"
-rm -rf "$WORKDIR"
-
