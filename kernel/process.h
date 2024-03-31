@@ -43,6 +43,7 @@ struct process {
 	uint32_t vm_data_size;
 	uint32_t vm_stack_size;
 	uint32_t waiting_for_child_pid;
+	uint32_t priority;
 };
 
 void process_init();
