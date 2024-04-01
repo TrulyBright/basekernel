@@ -1,4 +1,4 @@
-#include "assignment.h"
+#include "library/assignment.h"
 
 int main(void) {
     runForSeconds(5);
