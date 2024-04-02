@@ -239,6 +239,7 @@ void process_delete(struct process *p)
 
 void process_launch(struct process *p)
 {
+	printf("==== A process with pid %u and pri %u has been scheduled. ====\n", p->pid, p->pri);
 	list_push_tail(&ready_list, &p->node);
 }
 
