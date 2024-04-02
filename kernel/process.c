@@ -263,7 +263,7 @@ static void process_switch(int newstate)
 		current->state = newstate;
 
 		if(newstate == PROCESS_STATE_READY) {
-			list_push_tail(&ready_list, &current->node);
+			list_push_priority(&ready_list, &current->node, current->pri);
 		}
 		if(newstate == PROCESS_STATE_GRAVE) {
 			list_push_tail(&grave_list, &current->node);
