@@ -20,7 +20,8 @@ int main(void) {
     for (int i = 0; i < size; i++)
         pfd[i] = syscall_open_file(KNO_STDDIR, a[i].path, 0, 0);
     for (int i = 0; i < size; i++)
-        syscall_process_run(pfd[i], 0, NULL);
+        syscall_process_run(pfd[i], 0, NULL, a[i].pri);
     for (int i = 0; i < size; i++)
         syscall_object_close(pfd[i]);
+    return 0;
 }

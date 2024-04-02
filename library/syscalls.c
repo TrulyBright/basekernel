@@ -23,9 +23,9 @@ int syscall_process_yield()
 	return syscall(SYSCALL_PROCESS_YIELD, 0, 0, 0, 0, 0);
 }
 
-int syscall_process_run(int fd, int argc, const char **argv)
+int syscall_process_run(int fd, int argc, const char **argv, uint32_t pri)
 {
-	return syscall(SYSCALL_PROCESS_RUN, fd, argc, (uint32_t) argv, 0, 0);
+	return syscall(SYSCALL_PROCESS_RUN, fd, argc, (uint32_t) argv, pri, 0);
 }
 
 int syscall_process_wrun(int fd, int argc, const char **argv, int * fds, int fd_len)

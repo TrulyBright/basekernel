@@ -9,7 +9,7 @@ See the file LICENSE for details.
 
 /* Only kernel/syscall.handlers invoked by other parts of kernel code should be declared here. */
 
-int sys_process_run( int fd, int argc, const char **argv);
+int sys_process_run(int fd, int argc, const char **argv, uint32_t pri);
 int sys_process_exec( int fd, int argc, const char **argv);
 int sys_process_sleep(unsigned int ms);
 

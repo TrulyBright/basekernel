@@ -99,7 +99,7 @@ way than fork/exec by creating the child without duplicating
 the memory state, then loading
 */
 
-int sys_process_run( int fd, int argc, const char **argv)
+int sys_process_run(int fd, int argc, const char **argv, uint32_t pri)
 {
 	if(!is_valid_object_type(fd,KOBJECT_FILE)) return KERROR_INVALID_OBJECT;
 
@@ -110,6 +110,7 @@ int sys_process_run( int fd, int argc, const char **argv)
 
 	/* Create the child process */
 	struct process *p = process_create();
+	p->pri = pri;
 	process_inherit(current, p);
 
 	/* SWITCH TO ADDRESS SPACE OF CHILD PROCESS */
@@ -564,7 +565,7 @@ int32_t syscall_handler(syscall_t n, uint32_t a, uint32_t b, uint32_t c, uint32_
 	case SYSCALL_PROCESS_EXIT:
 		return sys_process_exit(a);
 	case SYSCALL_PROCESS_RUN:
-		return sys_process_run(a, b, (const char **)c);
+		return sys_process_run(a, b, (const char **)c, d);
 	case SYSCALL_PROCESS_WRUN:
 		return sys_process_wrun(a, b, (const char **) c, (int *) d, e);
 	case SYSCALL_PROCESS_FORK:

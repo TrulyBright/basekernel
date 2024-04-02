@@ -16,7 +16,7 @@ void syscall_debug(const char *str);
 
 void syscall_process_exit(int status);
 int syscall_process_yield();
-int syscall_process_run(int fd, int argc, const char **argv);
+int syscall_process_run(int fd, int argc, const char **argv, uint32_t pri);
 int syscall_process_wrun(int fd, int argc, const char **argv,  int * fds, int fd_len);
 int syscall_process_fork();
 int syscall_process_exec(int fd, int argc, const char **argv);

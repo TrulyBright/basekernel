@@ -80,7 +80,7 @@ int do_command(char *line)
 			}
 			int fd = syscall_open_file(KNO_STDDIR,argv[0],0,0);
 			if(fd>=0) {
-				int pid = syscall_process_run(fd, i,  &argv[0]);
+				int pid = syscall_process_run(fd, i,  &argv[0], 0);
 				if(pid > 0) {
 					printf("started process %d\n", pid);
 					syscall_process_yield();
