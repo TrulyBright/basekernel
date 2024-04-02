@@ -299,7 +299,7 @@ static void process_switch(int newstate)
 	interrupt_unblock();
 }
 
-int allow_preempt = 0;
+int allow_preempt = 1;
 
 void process_preempt()
 {
