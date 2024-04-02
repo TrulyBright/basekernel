@@ -383,6 +383,7 @@ int kshell_readline(char *line, int length)
 
 int kshell_launch()
 {
+	kshell_automount(); // automount on startup
 	char line[1024];
 	const char *argv[100];
 	int argc;
