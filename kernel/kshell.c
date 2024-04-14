@@ -164,7 +164,7 @@ static int kshell_execute(int argc, const char **argv)
 		if(argc > 1) {
 			int fd = sys_open_file(KNO_STDDIR,argv[1],0,0);
 			if(fd>=0) {
-				int pid = sys_process_run(fd, argc - 1,  &argv[1], 0);
+				int pid = sys_process_run(fd, argc - 1,  &argv[1], 0); // set to 0 to run instantly
 				if(pid > 0) {
 					printf("started process %d\n", pid);
 					process_yield();
@@ -195,7 +195,7 @@ static int kshell_execute(int argc, const char **argv)
 		if(argc > 1) {
 			int fd = sys_open_file(KNO_STDDIR,argv[1],0,0);
 			if(fd>=0) {
-				int pid = sys_process_run(fd, argc - 1, &argv[1], 0);
+				int pid = sys_process_run(fd, argc - 1, &argv[1], 0); // set to 0 to run instantly
 				if(pid > 0) {
 					printf("started process %d\n", pid);
 					process_yield();
