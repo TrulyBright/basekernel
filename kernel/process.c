@@ -239,8 +239,8 @@ void process_delete(struct process *p)
 
 void process_launch(struct process *p)
 {
-	printf("==== A process with pid %u and pri %u has been scheduled. ====\n", p->pid, p->pri);
-	list_push_priority(&ready_list, &p->node, p->pri);
+	printf("==== A PROCESS WITH PID %u and PRIORITY %u HAS BEEN SCHEDULED ====\n", p->pid, p->node.priority);
+	list_push_priority(&ready_list, &p->node, p->node.priority);
 }
 
 static void process_switch(int newstate)
@@ -256,14 +256,14 @@ static void process_switch(int newstate)
 			asm("pushl %ecx");
 			asm("pushl %ebx");
 			asm("pushl %eax");
-		      asm("movl %%esp, %0":"=r"(current->kstack_ptr));
+		    asm("movl %%esp, %0":"=r"(current->kstack_ptr));
 		}
 
 		interrupt_stack_pointer = (void *) INTERRUPT_STACK_TOP;
 		current->state = newstate;
 
 		if(newstate == PROCESS_STATE_READY) {
-			list_push_priority(&ready_list, &current->node, current->pri);
+			list_push_priority(&ready_list, &current->node, current->node.priority);
 		}
 		if(newstate == PROCESS_STATE_GRAVE) {
 			list_push_tail(&grave_list, &current->node);
@@ -284,6 +284,7 @@ static void process_switch(int newstate)
 
 	current->state = PROCESS_STATE_RUNNING;
 	interrupt_stack_pointer = current->kstack_top;
+	// printf("RUNNING: PID %u PRI %u\n", current->pid, current->node.priority);
 
 	asm("movl %0, %%cr3"::"r"(current->pagetable));
 	asm("movl %0, %%esp"::"r"(current->kstack_ptr));
@@ -303,9 +304,13 @@ int allow_preempt = 1;
 
 void process_preempt()
 {
-	if(allow_preempt && current && ready_list.head) {
+	if(
+		allow_preempt
+		&& current
+		&& ready_list.head
+		&& ready_list.head->priority < current->node.priority
+	)
 		process_switch(PROCESS_STATE_READY);
-	}
 }
 
 void process_yield()
