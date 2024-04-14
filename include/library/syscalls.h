@@ -28,6 +28,8 @@ int syscall_process_reap(unsigned int pid);
 int syscall_process_wait(struct process_info *info, int timeout);
 int syscall_process_sleep(unsigned int ms);
 int syscall_process_stats(struct process_stats *s, unsigned int pid);
+int syscall_make_named_pipe(const char *fname);
+int syscall_open_named_pipe(const char *fname);
 extern void *syscall_process_heap(int a);
 
 /* Syscalls that open or create new kernel objects for this process. */

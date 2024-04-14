@@ -203,3 +203,12 @@ int syscall_device_driver_stats(char * name, void * stats)
 	return syscall(SYSCALL_DEVICE_DRIVER_STATS, (uint32_t) name, (uint32_t) stats, 0, 0, 0);
 }
 
+int syscall_make_named_pipe(const char *fname)
+{
+	return syscall(SYSCALL_MAKE_NAMED_PIPE, (uint32_t)fname, 0, 0, 0, 0);
+}
+
+int syscall_open_named_pipe(const char *fname)
+{
+	return syscall(SYSCALL_OPEN_NAMED_PIPE, (uint32_t)fname, 0, 0, 0, 0);
+}
