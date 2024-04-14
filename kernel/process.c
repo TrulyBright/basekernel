@@ -263,6 +263,7 @@ static void process_switch(int newstate)
 		current->state = newstate;
 
 		if(newstate == PROCESS_STATE_READY) {
+			// TODO: This is an O(n) operation. We should use a heap or RB tree.
 			list_push_priority(&ready_list, &current->node, current->node.priority);
 		}
 		if(newstate == PROCESS_STATE_GRAVE) {
