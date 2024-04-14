@@ -22,5 +22,4 @@ void _start(int argc, const char **argv)
 {
 	printf("HELLO! I'm a process with PID %d and PRI %d!\n", syscall_process_self(), syscall_process_pri());
 	syscall_process_exit(main(argc, argv));
-	printf("BYE! I was a process with PID %d and PRI %d!\n", syscall_process_self(), syscall_process_pri());
 }
