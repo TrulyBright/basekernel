@@ -28,7 +28,7 @@ See the file LICENSE for details.
 #define PROCESS_EXIT_KILLED   1
 
 struct process {
-	struct list_node node;
+	struct list_node node; // This must be the first field. Otherwise, cast from and to struct list_node will not work.
 	int state;
 	int exitcode;
 	int exitreason;
@@ -43,7 +43,6 @@ struct process {
 	uint32_t vm_data_size;
 	uint32_t vm_stack_size;
 	uint32_t waiting_for_child_pid;
-	uint32_t pri;
 };
 
 void process_init();
