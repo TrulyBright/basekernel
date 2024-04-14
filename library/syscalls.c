@@ -48,6 +48,11 @@ int syscall_process_self()
 	return syscall(SYSCALL_PROCESS_SELF, 0, 0, 0, 0, 0);
 }
 
+int syscall_process_pri()
+{
+	return syscall(SYSCALL_PROCESS_PRI, 0, 0, 0, 0, 0);
+}
+
 int syscall_process_parent()
 {
 	return syscall(SYSCALL_PROCESS_PARENT, 0, 0, 0, 0, 0);

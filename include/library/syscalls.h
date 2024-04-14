@@ -21,6 +21,7 @@ int syscall_process_wrun(int fd, int argc, const char **argv,  int * fds, int fd
 int syscall_process_fork();
 int syscall_process_exec(int fd, int argc, const char **argv);
 int syscall_process_self();
+int syscall_process_pri();
 int syscall_process_parent();
 int syscall_process_kill(unsigned int pid);
 int syscall_process_reap(unsigned int pid);

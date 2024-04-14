@@ -110,7 +110,7 @@ int sys_process_run(int fd, int argc, const char **argv, uint32_t pri)
 
 	/* Create the child process */
 	struct process *p = process_create();
-	p->pri = pri;
+	p->node.priority = pri;
 	process_inherit(current, p);
 
 	/* SWITCH TO ADDRESS SPACE OF CHILD PROCESS */
@@ -255,6 +255,11 @@ int sys_process_fork()
 int sys_process_self()
 {
 	return current->pid;
+}
+
+int sys_process_pri()
+{
+	return current->node.priority;
 }
 
 int sys_process_parent()
@@ -574,6 +579,8 @@ int32_t syscall_handler(syscall_t n, uint32_t a, uint32_t b, uint32_t c, uint32_
 		return sys_process_exec(a, b, (const char **) c);
 	case SYSCALL_PROCESS_SELF:
 		return sys_process_self();
+	case SYSCALL_PROCESS_PRI:
+		return sys_process_pri();
 	case SYSCALL_PROCESS_PARENT:
 		return sys_process_parent();
 	case SYSCALL_PROCESS_KILL:

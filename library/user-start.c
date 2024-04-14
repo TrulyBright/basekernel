@@ -14,10 +14,12 @@ must invoke the syscall_process_exit() system call to terminate the process.
 */
 
 #include "library/syscalls.h"
+#include "library/string.h"
 
 int main(int argc, const char *argv[]);
 
 void _start(int argc, const char **argv)
 {
+	printf("I'm a process with PID %d and PRI %d!\n", syscall_process_self(), syscall_process_pri());
 	syscall_process_exit(main(argc, argv));
 }
