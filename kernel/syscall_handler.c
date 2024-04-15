@@ -404,6 +404,11 @@ int sys_open_pipe()
 	return fd;
 }
 
+int sys_make_named_pipe()
+{
+	
+}
+
 int sys_object_type(int fd)
 {
 	if(!is_valid_object(fd)) return KERROR_INVALID_OBJECT;
@@ -605,6 +610,10 @@ int32_t syscall_handler(syscall_t n, uint32_t a, uint32_t b, uint32_t c, uint32_
 		return sys_open_console(a);
 	case SYSCALL_OPEN_PIPE:
 		return sys_open_pipe();
+	case SYSCALL_MAKE_NAMED_PIPE:
+		return sys_make_named_pipe();
+	case SYSCALL_OPEN_NAMED_PIPE:
+		return sys_open_named_pipe();
 	case SYSCALL_OBJECT_TYPE:
 		return sys_object_type(a);
 	case SYSCALL_OBJECT_COPY:
