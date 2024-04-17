@@ -23,4 +23,4 @@ int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size);
 int named_pipe_read(struct named_pipe *np, char *buffer, int size);
 int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size);
 int named_pipe_size(struct named_pipe *np);
-struct named_pipe *named_pipe_lookup(const char* fname) {
+struct named_pipe *named_pipe_lookup(const char* fname);
