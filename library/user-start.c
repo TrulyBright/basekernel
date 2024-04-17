@@ -22,6 +22,6 @@ void _start(int argc, const char **argv)
 {
 	printf("HELLO! I'm a process with PID %d and PRI %d!\n", syscall_process_self(), syscall_process_pri());
 	const int exit_code = main(argc, argv);
-	printf("BYE! I'm a process with PID %d and PRI %d!\n", syscall_process_self(), syscall_process_pri());
+	printf("BYE! I was a process with PID %d and PRI %d! My exit code is %d!\n", syscall_process_self(), syscall_process_pri(), exit_code);
 	syscall_process_exit(exit_code);
 }

@@ -309,7 +309,7 @@ void process_preempt()
 		allow_preempt
 		&& current
 		&& ready_list.head
-		&& ready_list.head->priority < current->node.priority
+		&& ready_list.head->priority <= current->node.priority // same priority: alternately run
 	)
 		process_switch(PROCESS_STATE_READY);
 }

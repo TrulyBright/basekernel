@@ -4,8 +4,10 @@
 #include "page.h"
 
 static struct named_pipe *named_pipes[MAX_NAMED_PIPES];
+static int named_pipe_count = 0;
 
 struct named_pipe *named_pipe_create(const char* fname) {
+    if (named_pipe_count >= MAX_NAMED_PIPES) return 0;
     struct named_pipe *np = kmalloc(sizeof(struct named_pipe));
     np->fname = fname;
     np->buffer = page_alloc(1);
@@ -13,6 +15,8 @@ struct named_pipe *named_pipe_create(const char* fname) {
         kfree(np);
         return 0;
     }
+    named_pipes[named_pipe_count++] = np;
+    named_pipe_count %= MAX_NAMED_PIPES;
     np->read_pos = 0;
     np->write_pos = 0;
     np->flushed = 0;
@@ -37,6 +41,13 @@ void named_pipe_delete(struct named_pipe *np) {
     if (!np) return;
     np->refcount--;
     if (np->refcount == 0) {
+        for (int i = 0; i < MAX_NAMED_PIPES; i++)
+        // SUGGESTION: np has index of itself in named_pipes[]
+        // so that we don't have to loop here
+            if (named_pipes[i] == np) {
+                named_pipes[i] = 0;
+                break;
+            }
         if (np->buffer) {
             page_free(np->buffer);
         }
@@ -70,7 +81,7 @@ int named_pipe_write(struct named_pipe *np, char *buffer, int size) {
     return named_pipe_write_internal(np, buffer, size, 1);
 }
 
-int named_pipe_write_nb(struct named_pipe *np, char *buffer, int size) {
+int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size) {
     return named_pipe_write_internal(np, buffer, size, 0);
 }
 
@@ -100,7 +111,7 @@ int named_pipe_read(struct named_pipe *np, char *buffer, int size) {
     return named_pipe_read_internal(np, buffer, size, 1);
 }
 
-int named_pipe_read_nb(struct named_pipe *np, char *buffer, int size) {
+int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size) {
     return named_pipe_read_internal(np, buffer, size, 0);
 }
 
@@ -109,8 +120,9 @@ int named_pipe_size(struct named_pipe *np) {
     return (np->write_pos - np->read_pos + PIPE_SIZE) % PIPE_SIZE;
 }
 
-// TODO: replace loop with a hash table for faster lookup
+// automatically increments refcount.
 struct named_pipe *named_pipe_lookup(const char* fname) {
+    // TODO: replace loop with a hash table for faster lookup
     for (int i = 0; i < MAX_NAMED_PIPES; i++)
         if (named_pipes[i] && named_pipes[i]->fname == fname)
             return named_pipe_addref(named_pipes[i]);

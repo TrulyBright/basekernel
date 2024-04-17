@@ -16,12 +16,13 @@ int main(void) {
         {"/bin/process5.exe", 5},
     };
     const int size = (int) (sizeof(a) / sizeof(a[0]));
-    int pfd[size];
-    for (int i = 0; i < size; i++)
-        pfd[i] = syscall_open_file(KNO_STDDIR, a[i].path, 0, 0);
-    for (int i = 0; i < size; i++)
-        syscall_process_run(pfd[i], 0, NULL, a[i].pri);
-    for (int i = 0; i < size; i++)
-        syscall_object_close(pfd[i]);
+    int pid[size];
+    for (int i = 0; i < size; i++) {
+        const int pfd = syscall_open_file(KNO_STDDIR, a[i].path, 0, 0);
+        pid[i] = syscall_process_run(pfd, 0, NULL, a[i].pri);
+        syscall_object_close(pfd);
+    }
+    struct process_info info;
+    syscall_process_wait(&info, 0);
     return 0;
 }

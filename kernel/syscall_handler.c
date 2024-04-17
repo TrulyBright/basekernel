@@ -28,6 +28,7 @@ See the file LICENSE for details.
 #include "window.h"
 #include "is_valid.h"
 #include "bcache.h"
+#include "named_pipe.h"
 
 /*
 syscall_handler() is responsible for decoding system calls
@@ -404,9 +405,24 @@ int sys_open_pipe()
 	return fd;
 }
 
-int sys_make_named_pipe()
+int sys_make_named_pipe(const char *fname)
 {
-	
+	int fd = process_available_fd(current);
+	if(fd < 0) return KERROR_OUT_OF_OBJECTS;
+	struct named_pipe *np = named_pipe_create(fname);
+	if(!np) return KERROR_OUT_OF_MEMORY;
+	current->ktable[fd] = kobject_create_named_pipe(np);
+	return fd;
+}
+
+int sys_open_named_pipe(const char *fname)
+{
+	int fd = process_available_fd(current);
+	if(fd < 0) return KERROR_OUT_OF_OBJECTS;
+	struct named_pipe *np = named_pipe_lookup(fname);
+	if(!np) return KERROR_NOT_FOUND;
+	current->ktable[fd] = kobject_create_named_pipe(np);
+	return fd;
 }
 
 int sys_object_type(int fd)
@@ -611,9 +627,9 @@ int32_t syscall_handler(syscall_t n, uint32_t a, uint32_t b, uint32_t c, uint32_
 	case SYSCALL_OPEN_PIPE:
 		return sys_open_pipe();
 	case SYSCALL_MAKE_NAMED_PIPE:
-		return sys_make_named_pipe();
+		return sys_make_named_pipe((const char *)a);
 	case SYSCALL_OPEN_NAMED_PIPE:
-		return sys_open_named_pipe();
+		return sys_open_named_pipe((const char *)a);
 	case SYSCALL_OBJECT_TYPE:
 		return sys_object_type(a);
 	case SYSCALL_OBJECT_COPY:

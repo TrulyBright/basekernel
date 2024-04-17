@@ -1,12 +1,16 @@
 #include "library/string.h"
 #include "library/syscalls.h"
+#include "library/assignment.h"
 
-int main(void) {
-    const char *fname = "/.pipe";
-    int res = syscall_make_named_pipe(fname);
-    int fd = syscall_open_named_pipe(fname);
-
-    char buffer[20];
-    syscall_object_read(fd, buffer, 20, 0);
-    printf("%s\n", buffer);
+int main(const int argc, const char** argv) {
+    int fd = syscall_make_named_pipe(argv[1]);
+    if (fd < 0) {
+        printf("Failed to create named pipe: %d\n", fd);
+        return 1;
+    }
+    const int content_size = strlen(argv[2]) + 1;
+    char buffer[content_size];
+    syscall_object_read(fd, buffer, content_size, 0);
+    printf("read: %s\n", buffer);
+    return 0;
 }
