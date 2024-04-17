@@ -3,6 +3,8 @@
 #include "process.h"
 #include "page.h"
 
+static struct named_pipe *named_pipes[MAX_NAMED_PIPES];
+
 struct named_pipe *named_pipe_create(const char* fname) {
     struct named_pipe *np = kmalloc(sizeof(struct named_pipe));
     np->fname = fname;
@@ -100,4 +102,16 @@ int named_pipe_read(struct named_pipe *np, char *buffer, int size) {
 
 int named_pipe_read_nb(struct named_pipe *np, char *buffer, int size) {
     return named_pipe_read_internal(np, buffer, size, 0);
+}
+
+int named_pipe_size(struct named_pipe *np) {
+    if (!np) return -1;
+    return (np->write_pos - np->read_pos + PIPE_SIZE) % PIPE_SIZE;
+}
+
+struct named_pipe *named_pipe_lookup(const char* fname) {
+    for (int i = 0; i < MAX_NAMED_PIPES; i++)
+        if (named_pipes[i] && named_pipes[i]->fname == fname)
+            return named_pipe_addref(named_pipes[i]);
+    return 0;
 }

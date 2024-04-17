@@ -1,6 +1,7 @@
 #pragma once
 #include "list.h"
 #define PIPE_SIZE PAGE_SIZE
+#define MAX_NAMED_PIPES 256
 
 struct named_pipe {
     const char* fname;
@@ -22,3 +23,4 @@ int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size);
 int named_pipe_read(struct named_pipe *np, char *buffer, int size);
 int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size);
 int named_pipe_size(struct named_pipe *np);
+struct named_pipe *named_pipe_lookup(const char* fname) {
