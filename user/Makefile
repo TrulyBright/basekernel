@@ -1,9 +1,10 @@
 
 include ../Makefile.config
 
-USER_PROGRAMS=ball.exe clock.exe copy.exe livestat.exe manager.exe fractal.exe procstat.exe saver.exe shell.exe snake.exe sysstat.exe process1.exe process2.exe process3.exe process4.exe process5.exe schedulertest.exe sender.exe receiver.exe
+SRC=$(wildcard *.c)
+EXES=$(SRC:.c=.exe)
 
-all: $(USER_PROGRAMS)
+all: $(EXES)
 
 %.o: %.c
 	${CC} ${KERNEL_CCFLAGS} -I ../include $< -o $@
