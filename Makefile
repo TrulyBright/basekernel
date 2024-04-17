@@ -6,6 +6,7 @@ USER_SOURCES=$(wildcard user/*.c)
 USER_PROGRAMS=$(USER_SOURCES:c=exe)
 KERNEL_SOURCES=$(wildcard kernel/*.[chS])
 WORDS=/usr/share/dict/words
+NPROC=$(shell nproc)
 
 .PHONY: build-kernel build-library build-userspace build-cdrom-image
 
@@ -20,13 +21,13 @@ build-userspace: $(USER_PROGRAMS)
 build-cdrom-image: basekernel.iso
 
 kernel/basekernel.img: $(KERNEL_SOURCES) $(LIBRARY_HEADERS)
-	cd kernel && make -j$(nproc)
+	cd kernel && make -j${NPROC}
 
 library/baselib.a: $(LIBRARY_SOURCES) $(LIBRARY_HEADERS)
-	cd library && make -j$(nproc)
+	cd library && make -j${NPROC}
 
 $(USER_PROGRAMS): $(USER_SOURCES) library/baselib.a $(LIBRARY_HEADERS)
-	cd user && make -j$(nproc)
+	cd user && make -j${NPROC}
 
 image: kernel/basekernel.img $(USER_PROGRAMS)
 	rm -rf image
@@ -49,6 +50,6 @@ debug: basekernel.iso disk.img
 
 clean:
 	rm -rf basekernel.iso image disk.img
-	cd kernel && make -j$(nproc) clean
-	cd library && make -j$(nproc) clean
-	cd user && make -j$(nproc) clean
+	cd kernel && make -j${NPROC} clean
+	cd library && make -j${NPROC} clean
+	cd user && make -j${NPROC} clean
