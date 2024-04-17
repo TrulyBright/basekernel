@@ -53,8 +53,6 @@ typedef enum {
 	SYSCALL_SYSTEM_TIME,
 	SYSCALL_SYSTEM_RTC,
 	SYSCALL_DEVICE_DRIVER_STATS,
-	SYSCALL_MAKE_NAMED_PIPE,
-	SYSCALL_OPEN_NAMED_PIPE,
 	MAX_SYSCALL		// must be the last element in the enum
 } syscall_t;
 
