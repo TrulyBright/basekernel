@@ -109,6 +109,7 @@ int named_pipe_size(struct named_pipe *np) {
     return (np->write_pos - np->read_pos + PIPE_SIZE) % PIPE_SIZE;
 }
 
+// TODO: replace loop with a hash table for faster lookup
 struct named_pipe *named_pipe_lookup(const char* fname) {
     for (int i = 0; i < MAX_NAMED_PIPES; i++)
         if (named_pipes[i] && named_pipes[i]->fname == fname)
