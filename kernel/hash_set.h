@@ -9,8 +9,22 @@ See the file LICENSE for details.
 
 #include "kernel/types.h"
 
+struct hash_set {
+	unsigned total_buckets;
+	unsigned num_entries;
+	struct hash_set_node **head;
+};
+
+struct hash_set_node {
+	unsigned key;
+	void *data;
+	struct hash_set_node *next;
+};
+
 struct hash_set *hash_set_create(unsigned max_expected_keys);
 void hash_set_delete(struct hash_set *set);
+
+unsigned   hash_string(const char *string, unsigned range_min, unsigned range_max);
 
 unsigned   hash_set_add(struct hash_set *set, unsigned key, void *data);
 void *     hash_set_lookup(struct hash_set *set, unsigned key);

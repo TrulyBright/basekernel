@@ -11,22 +11,10 @@ See the file LICENSE for details.
 #define HASHTABLE_PRIME 31
 #define HASHTABLE_GOLDEN_RATIO 0x61C88647
 
-struct hash_set {
-	unsigned total_buckets;
-	unsigned num_entries;
-	struct hash_set_node **head;
-};
-
-struct hash_set_node {
-	unsigned key;
-	void *data;
-	struct hash_set_node *next;
-};
-
-unsigned hash_string(char *string, unsigned range_min, unsigned range_max)
+unsigned hash_string(const char *string, unsigned range_min, unsigned range_max)
 {
 	unsigned hash = HASHTABLE_PRIME;
-	char *curr = string;
+	const char * curr = string;
 	while(*curr) {
 		hash = HASHTABLE_PRIME * hash + *curr;
 		curr++;
