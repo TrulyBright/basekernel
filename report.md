@@ -19,8 +19,7 @@ Reading those three, we can describe the process scheduler as follows.
 
 Now that we understand how the scheduler works, let's move on to its modification.
 
-### Implementation of Preemptive Priority Scheduling
-#### Defining Priority of Processes
+### Defining Priority of Processes
 This is the original definition of `struct process`.
 ```c
 struct process {
@@ -52,7 +51,7 @@ struct list_node {
 };
 ```
 So I just used the existing `process.node->priority`. Nothing modified here.
-#### Ordering Processes by Priority
+### Ordering Processes by Priority
 There are two ways to _sort_ `ready_list`.
 - $O(n)$ approach: Every time a new process is added to `ready_list`, do a linear search to find the right place to insert it. The first element has the highest priority.
     - Time complexity of insertion: $O(n)$. This is the running time of `process_launch()`.
@@ -103,7 +102,7 @@ void list_push_tail(struct list *list, struct list_node *node)
     list->tail = node;
 }
 ```
-#### Allowing Preemption
+### Allowing Preemption
 So far we didn't allow preemption. Let's set the global variable `allow_preempt` to `1` and modify the other conditions.
 ```cpp
 // kernel/process.c
@@ -123,7 +122,7 @@ void process_preempt()
 }
 ```
 Note that it preempts even when the preempted has the same priority as the new. I chose to let them run alternately if there are multiple processes with the same priority.
-#### Modification of `syscall_process_run()`
+### Modification of `syscall_process_run()`
 The specification of the project says the user program can set the priority of a process. To do that, I chose to give `syscall_process_run()` a new parameter `pri`:
 ```cpp
 // library/syscalls.c
@@ -220,3 +219,112 @@ int main(void) {
 Run `make run` and type `run bin/schedulertest.exe` inside. Below is the result, where the processes are run by priority.
 ![schedulertest result](image.png)
 You don't have to run `automount`. I modified `kshell_launch()` to automatically run it on startup.
+
+## Problem 2: Named PIPE
+The original codebase had unnamed pipe implemented. I implemented named pipe based on it.
+
+### Header
+`named_pipe.h` is as follows.
+```cpp
+#pragma once
+#include "list.h"
+#define PIPE_SIZE PAGE_SIZE
+#define MAX_NAMED_PIPES 256
+struct named_pipe {
+    const char* fname;
+    char *buffer;
+    int read_pos;
+    int write_pos;
+    int flushed;
+    int refcount;
+    struct list queue;
+};
+struct named_pipe *named_pipe_create(const char* fname);
+struct named_pipe *named_pipe_addref(struct named_pipe *np);
+void named_pipe_delete(struct named_pipe *np);
+void named_pipe_flush(struct named_pipe *np);
+
+int named_pipe_write(struct named_pipe *np, char *buffer, int size);
+int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size);
+int named_pipe_read(struct named_pipe *np, char *buffer, int size);
+int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size);
+int named_pipe_size(struct named_pipe *np);
+struct named_pipe *named_pipe_lookup(const char* fname);
+```
+It is mostly the same as `pipe.h`. The only notable difference is that we have a new function `named_pipe_lookup()` for anyone to find a named pipe by its name.
+
+### Implementation
+How to look up named pipe? I had two options:
+- Array approach: Linear search through the array of named pipes. Easy.
+    - Time complexity of lookup: $O(n)$ on average. This is the running time of `named_pipe_lookup()`, `named_pipe_create()`, and `named_pipe_delete()` because they all need to check if the given name exists.
+- Hash table approach: Use a hash table to store named pipes. Harder.
+    - Time complexity of lookup: $O(1)$ on average. $O(n)$ in the worst case.
+
+I chose to implement the easier approach first and later change it to the harder.
+
+#### Array Approach
+First, write global variables.
+```cpp
+static struct named_pipe *named_pipes[MAX_NAMED_PIPES];
+static int last_named_pipe_index = 0;
+static int named_pipe_count = 0;
+```
+It's quite straightforward.
+
+Then, write `named_pipe_create()`, `named_pipe_delete()` and `named_pipe_lookup()`:
+```cpp
+struct named_pipe *named_pipe_create(const char* fname) {
+    if (named_pipe_count >= MAX_NAMED_PIPES) return 0;
+    struct named_pipe *existing = named_pipe_lookup(fname);
+    if (existing) {
+        named_pipe_delete(existing);
+        return 0; // fail if the name already exists
+    }
+    struct named_pipe *np = kmalloc(sizeof(struct named_pipe));
+    np->fname = fname;
+    np->buffer = page_alloc(1);
+    if (!np->buffer) {
+        kfree(np);
+        return 0;
+    }
+    named_pipes[last_named_pipe_index++] = np;
+    last_named_pipe_index %= MAX_NAMED_PIPES; // wrap around
+    named_pipe_count++;
+    np->read_pos = 0;
+    np->write_pos = 0;
+    np->flushed = 0;
+    np->queue.head = 0;
+    np->queue.tail = 0;
+    np->refcount = 1;
+    return np;
+}
+
+void named_pipe_delete(struct named_pipe *np) {
+    if (!np) return;
+    np->refcount--;
+    if (np->refcount == 0) {
+        for (int i = 0; i < MAX_NAMED_PIPES; i++)
+            if (named_pipes[i] == np) {
+                named_pipes[i] = 0;
+                break;
+            }
+        if (np->buffer) page_free(np->buffer);
+        kfree(np);
+        named_pipe_count--;
+    }
+}
+
+// automatically increments refcount.
+struct named_pipe *named_pipe_lookup(const char* fname) {
+    // TODO: replace loop with a hash table for faster lookup
+    for (int i = 0; i < MAX_NAMED_PIPES; i++)
+        if (named_pipes[i] && named_pipes[i]->fname == fname)
+            return named_pipe_addref(named_pipes[i]);
+    return 0;
+}
+```
+Note that `named_pipe_lookup()` always increments refcount. I chose to do so because the caller may want to use the named pipe right after looking it up.
+
+The rest of the functions are similar to those in `pipe.c`. I omit them here.
+
+#### Hash Table Approach
