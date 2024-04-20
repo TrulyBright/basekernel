@@ -16,6 +16,11 @@ static struct hash_set named_pipes = {
 
 struct named_pipe *named_pipe_create(const char* fname) {
     if (named_pipes.num_entries >= MAX_NAMED_PIPES) return 0;
+    struct named_pipe *existing = named_pipe_lookup(fname);
+    if (existing) {
+        named_pipe_delete(existing); // decrease refcount
+        return 0;
+    }
     struct named_pipe *np = kmalloc(sizeof(struct named_pipe));
     np->fname = fname;
     np->buffer = page_alloc(1);

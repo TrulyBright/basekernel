@@ -409,6 +409,11 @@ int sys_make_named_pipe(const char *fname)
 {
 	int fd = process_available_fd(current);
 	if(fd < 0) return KERROR_OUT_OF_OBJECTS;
+	struct named_pipe *existing = named_pipe_lookup(fname);
+	if (existing) {
+		named_pipe_delete(existing); // decrease refcount
+		return KERROR_FILE_EXISTS;
+	}
 	struct named_pipe *np = named_pipe_create(fname);
 	if(!np) return KERROR_OUT_OF_MEMORY;
 	current->ktable[fd] = kobject_create_named_pipe(np);
