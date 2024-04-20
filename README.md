@@ -1,5 +1,5 @@
 # CS3103 Operating Systems Project B Report
-This is a report for Project B of CS3103 Operating Systems, 2024 semester B. The result source code is also available at [my GitHub repository](https://github.com/TrulyBright/basekernel).
+This is a report for Project B of CS3103 Operating Systems, 2024 semester B in City University of Hong Kong. The result source code is also available at [my GitHub repository](https://github.com/TrulyBright/basekernel).
 ## Group Members
 - 40147213 LEE Jinmyoung (alone)
 
@@ -265,6 +265,7 @@ I chose to implement the easier approach first and later change it to the harder
 #### Array Approach
 First, write global variables.
 ```cpp
+// kernel/named_pipe.c
 static struct named_pipe *named_pipes[MAX_NAMED_PIPES];
 static int last_named_pipe_index = 0;
 static int named_pipe_count = 0;
@@ -273,6 +274,7 @@ It's quite straightforward.
 
 Then, write `named_pipe_create()`, `named_pipe_delete()` and `named_pipe_lookup()`:
 ```cpp
+// kernel/named_pipe.c
 struct named_pipe *named_pipe_create(const char* fname) {
     if (named_pipe_count >= MAX_NAMED_PIPES) return 0;
     struct named_pipe *existing = named_pipe_lookup(fname); // O(n)
@@ -322,6 +324,7 @@ Note that `named_pipe_lookup()` always increments refcount. I chose to do so bec
 
 `write()` and `read()` have the same logic as those in `pipe.c`. The following is my implementation, which is more clear and shorter than the original.
 ```cpp
+// kernel/named_pipe.c
 static int named_pipe_write_internal(struct named_pipe *np, char *buffer, int size, int blocking) {
     if (!np || !buffer) return -1;
     if (np->flushed) return 0;
@@ -365,11 +368,153 @@ static int named_pipe_read_internal(struct named_pipe *np, char *buffer, int siz
     return read;
 }
 ```
-
+The buffer is full if `np->read_pos == (np->write_pos + 1) % PIPE_SIZE`. The buffer is empty if `np->read_pos == np->write_pos`. So there can be up to `PIPE_SIZE - 1` bytes written in the buffer. `read()` blocks if the buffer is empty and `blocking` is set, and `write()` blocks if the buffer is full and `blocking` is set.
 
 ##### Testing of Array Approach
-![alt text](image-1.png)
+The implemenations of `sender.c` and `receiver.c` are at the end of this "Problem 2" section. Run `make run` and type `run bin/pipetest.exe` inside. Below is the result.
+![screenshot of the result of run bin/pipetest.exe](image-1.png)
 It works fine!
 
 #### Hash Table Approach
-Now let's replace the array with a hash table. Thanks to the original author again, we already had `hash_set.h` and `hash_set.c`. But there
+Now let's replace the array with a hash table. Thanks to the original author again, we already had `hash_set.h` and `hash_set.c`. But I didn't use it just as it is to partially avoid dynamic memory allocation. Look at the following code of `hash_set_create()`:
+```cpp
+// kernel/hash_set.c
+struct hash_set *hash_set_create(unsigned buckets)
+{
+	struct hash_set_node **set_nodes = kmalloc(sizeof(struct hash_set_node *) * buckets);
+	struct hash_set *set = kmalloc(sizeof(struct hash_set));
+	memset(set_nodes, 0, sizeof(struct hash_set_node *) * buckets);
+
+	set->total_buckets = buckets;
+	set->head = set_nodes;
+	set->num_entries = 0;
+
+	if(!set || !set_nodes) {
+		hash_set_delete(set);
+		return 0;
+	}
+	return set;
+}
+```
+It uses `kmalloc()` twice, once for `set_nodes*` and once for `set`. This is useful if the number of buckets is not known at compile time. But in our case, we know the number of named pipes at compile time. It is `MAX_NAMED_PIPES`.
+
+That's why I declared a hash table statically in `named_pipe.c`:
+```cpp
+// kernel/named_pipe.c
+static struct hash_set_node *nodes[MAX_NAMED_PIPES] = {};
+static struct hash_set named_pipes = {
+    .num_entries = 0,
+    .total_buckets = MAX_NAMED_PIPES,
+    .head = nodes
+};
+```
+This way, we can create a `hash_set` without `kmalloc()`. It's faster and has better cache locality. It's also more reliable because `kmalloc()`, which can fail, is not used.
+
+Then, modify `named_pipe_create()`, `named_pipe_delete()` and `named_pipe_lookup()`:
+```cpp
+// kernel/named_pipe.c
+struct named_pipe *named_pipe_create(const char* fname) {
+    // ...
+    hash_set_add(&named_pipes, hash_string(fname, 0, MAX_NAMED_PIPES), np);
+    // ...
+}
+
+void named_pipe_delete(struct named_pipe *np) {
+    // ...
+    if (np->refcount == 0) {
+        hash_set_remove(&named_pipes, hash_string(np->fname, 0, MAX_NAMED_PIPES));
+        // ...
+    }
+}
+
+// automatically increments refcount.
+struct named_pipe *named_pipe_lookup(const char* fname) {
+    struct named_pipe *np = (struct named_pipe *)hash_set_lookup(&named_pipes, hash_string(fname, 0, MAX_NAMED_PIPES));
+    return np ? named_pipe_addref(np) : 0;
+}
+```
+One thing to note is that I didn't completely get rid of dynamic allocation. When `named_pipe_create()` calls `hash_set_add()`, it internally calls `kmalloc()` to allocate a new `hash_set_node`. So, it's not fully reliable yet. It can still fail when we create a new pipe although the kernel guarantees `MAX_NAMED_PIPES` named pipes can be created. This is because we statically declared an array of pointers to `hash_set_node`, not the nodes themselves. To completely avoid dynamic allocation, we need to declare `hash_set_node nodes[MAX_PIPE_SIZE]` instead of `hash_set_node *nodes[MAX_PIPE_SIZE]` and write new functions particularly for statically allocated hash tables. But I didn't do that because it's a bit complicated and not necessary for this project.
+
+##### Testing of Hash Table Approach
+Run `make run` and type `run bin/pipetest.exe` inside. Below is the result.
+![screenshot of the result of run bin/pipetest.exe](image-2.png)
+It works fine again!
+
+### `sender.c` and `receiver.c`
+I created `pipetest.exe` to run `sender.exe` and `receiver.exe` concurrently. Below is its source code.
+```cpp
+// kernel/pipetest.c
+#include "library/syscalls.h"
+#include "library/string.h"
+
+int main(void) {
+    const char *pipe_name = "test_pipe";
+    const char *sender_exe = "/bin/sender.exe",
+               *receiver_exe = "/bin/receiver.exe";
+    printf("Testing pipe. pipe name: %s\n", pipe_name);
+    const int fd_sender1 = syscall_open_file(KNO_STDDIR, sender_exe, 0, 0),
+              fd_sender2 = syscall_open_file(KNO_STDDIR, sender_exe, 0, 0),
+              fd_receiver = syscall_open_file(KNO_STDDIR, receiver_exe, 0, 0);
+    if (fd_sender1 < 0 || fd_sender2 < 0 || fd_receiver < 0) {
+        printf("Failed to open file: %d %d %d\n", fd_sender1, fd_sender2, fd_receiver);
+        return 1;
+    }
+    const char *content = "I love CityU";
+    const int content_length = strlen(content) + 1;
+    char buffer[3];
+    uint_to_string(content_length * 2, buffer);
+    const char *argv_receiver[] = {receiver_exe, pipe_name, buffer};
+    const char *argv_sender[] = {sender_exe, pipe_name, content};
+    syscall_process_run(fd_receiver, 3, argv_receiver, 0);
+    syscall_process_run(fd_sender1, 3, argv_sender, 0);
+    syscall_process_run(fd_sender2, 3, argv_sender, 0);
+    syscall_object_close(fd_receiver);
+    syscall_object_close(fd_sender1);
+    syscall_object_close(fd_sender2);
+    return 0;
+}
+```
+It creates two sender processes and one receiver process. The sender processes write the same string `"I love CityU"` to the named pipe, and the receiver process reads bytes that are twice the length of the string. All three of them run concurrently because they have the same priority. This is one reason that I chose to let processes with the same priority run alternately in Problem 1. If I didn't allow preemption on the same priority, the sender processes would have run first, and the receiver process would have waited until the sender processes finish. Yeah, I could just let the receiver process run first and be blocked until the sender processes write to the pipe. But I wanted to show the concurrency.
+
+Below is `sender.c`.
+```cpp
+#include "library/syscalls.h"
+#include "library/string.h"
+
+int main(const int argc, const char** argv) {
+    int fd = syscall_open_named_pipe(argv[1]);
+    if (fd < 0) {
+        printf("Failed to open named pipe: %d\n", fd);
+        return 1;
+    }
+    const char *content = argv[2];
+    const int content_size = strlen(content) + 1;
+    syscall_object_write(fd, content, content_size, 0);
+    printf("wrote: %s\n", content);
+    return 0;
+}
+```
+Below is `reciever.c`.
+```cpp
+#include "library/string.h"
+#include "library/syscalls.h"
+
+int main(const int argc, const char** argv) {
+    int fd = syscall_make_named_pipe(argv[1]);
+    if (fd < 0) {
+        printf("Failed to create named pipe: %d\n", fd);
+        return 1;
+    }
+    int failing_fd = syscall_make_named_pipe(argv[1]);
+    if (failing_fd >= 0) {
+        printf("Named pipe creation should have failed\n");
+        return 1;
+    }
+    const int content_size = strlen(argv[2]) + 1;
+    char buffer[content_size];
+    syscall_object_read(fd, buffer, content_size, 0);
+    printf("read: %s\n", buffer);
+    return 0;
+}
+```
+Note that `reciever.c` tries to create a named pipe with the same name twice. The second attempt should fail.
