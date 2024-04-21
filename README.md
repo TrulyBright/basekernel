@@ -518,3 +518,273 @@ int main(const int argc, const char** argv) {
 }
 ```
 Note that `reciever.c` tries to create a named pipe with the same name twice. The second attempt should fail.
+
+## List of Relevant Functions and values
+The followings are the new functions and values I added to the original codebase.
+
+`include/kernel/syscall.h`:
+```cpp
+typedef enum {
+    // ...
+    SYSCALL_PROCESS_PRI, // get the priority of the current process
+    SYSCALL_MAKE_NAMED_PIPE, // create a named pipe
+	SYSCALL_OPEN_NAMED_PIPE, // open a named pipe
+    // ...
+} syscall_t;
+```
+`include/kernel/types.h`:
+```cpp
+typedef enum {
+    // ...
+    KOBJECT_NAMED_PIPE, // named pipe
+    // ...
+} kobject_type_t;
+```
+`include/library/assignment.h`:
+```cpp
+// block for `seconds` seconds
+void runForSeconds(int seconds);
+```
+`include/library/syscalls.h`:
+```cpp
+// run a process with priority `pri`. return the pid of that process.
+int syscall_process_run(int fd, int argc, const char **argv, uint32_t pri);
+// return the priority of the current process.
+int syscall_process_pri();
+```
+`kernel/kobject.h`:
+```cpp
+struct kobject {
+    // ...
+    union {
+        // ...
+        struct named_pipe *named_pipe; // added this line.
+        // ...
+    } data;
+    // ...
+}
+struct kobject *kobject_create_named_pipe(struct named_pipe *p);
+```
+`kernel/kobject.c`:
+```cpp
+// get a named pipe. return a kobject whose type is KOBJECT_NAMED_PIPE and data is the named pipe.
+struct kobject *kobject_create_named_pipe(struct named_pipe *np)
+{
+	struct kobject *k = kobject_create();
+	k->type = KOBJECT_NAMED_PIPE;
+	k->data.named_pipe = np;
+	return k;
+}
+```
+`kernel/named_pipe.h`:
+```cpp
+struct named_pipe {
+    const char* fname;
+    char *buffer;
+    int read_pos;
+    int write_pos;
+    int flushed;
+    int refcount;
+    struct list queue;
+};
+
+// create a named pipe with the given name. return the named pipe.
+struct named_pipe *named_pipe_create(const char* fname);
+// increment the refcount of the named pipe and return it.
+struct named_pipe *named_pipe_addref(struct named_pipe *np);
+// decrement the refcount of the named pipe. delete it if the refcount is 0.
+void named_pipe_delete(struct named_pipe *np);
+// mark the named pipe as flushed.
+void named_pipe_flush(struct named_pipe *np);
+// write to the named pipe. return the number of bytes written.
+int named_pipe_write(struct named_pipe *np, char *buffer, int size);
+// write to the named pipe. return the number of bytes written. non-blocking version.
+int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size);
+// read from the named pipe. return the number of bytes read.
+int named_pipe_read(struct named_pipe *np, char *buffer, int size);
+// read from the named pipe. return the number of bytes read. non-blocking version.
+int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size);
+// return the number of bytes in the named pipe.
+int named_pipe_size(struct named_pipe *np);
+// look up the named pipe by its name. return the named pipe.
+struct named_pipe *named_pipe_lookup(const char* fname);
+```
+`kernel/named_pipe.c`:
+```cpp
+// Q. Why not use hash_set_create()?
+// A. We know the number of buckets that is constant all the time.
+//    Thus we avoid dynamic memory allocation here.
+static struct hash_set_node *nodes[MAX_NAMED_PIPES] = {};
+static struct hash_set named_pipes = {
+    .num_entries = 0,
+    .total_buckets = MAX_NAMED_PIPES,
+    .head = nodes
+};
+
+struct named_pipe *named_pipe_create(const char* fname) {
+    if (named_pipes.num_entries >= MAX_NAMED_PIPES) return 0;
+    struct named_pipe *existing = named_pipe_lookup(fname);
+    if (existing) {
+        named_pipe_delete(existing); // decrease refcount
+        return 0;
+    }
+    struct named_pipe *np = kmalloc(sizeof(struct named_pipe));
+    np->fname = fname;
+    np->buffer = page_alloc(1);
+    if (!np->buffer) {
+        kfree(np);
+        return 0;
+    }
+    hash_set_add(&named_pipes, hash_string(fname, 0, MAX_NAMED_PIPES), np);
+    np->read_pos = 0;
+    np->write_pos = 0;
+    np->flushed = 0;
+    np->queue.head = 0;
+    np->queue.tail = 0;
+    np->refcount = 1; // default refcount is 1
+    return np;
+}
+
+struct named_pipe *named_pipe_addref(struct named_pipe *np) {
+    np->refcount++;
+    return np;
+}
+
+void named_pipe_flush(struct named_pipe *np) {
+    if (np) {
+        np->flushed = 1;
+        process_wakeup_all(&np->queue); // wake up all processes waiting on this named pipe to find out it's flushed.
+    }
+}
+
+void named_pipe_delete(struct named_pipe *np) {
+    if (!np) return;
+    np->refcount--;
+    if (np->refcount == 0) {
+        hash_set_remove(&named_pipes, hash_string(np->fname, 0, MAX_NAMED_PIPES));
+        if (np->buffer) page_free(np->buffer);
+        kfree(np);
+    }
+}
+
+static int named_pipe_write_internal(struct named_pipe *np, char *buffer, int size, int blocking) {
+    if (!np || !buffer) return -1;
+    if (np->flushed) return 0;
+    int written = 0;
+    while (written < size) {
+        if (np->read_pos == (np->write_pos + 1) % PIPE_SIZE) {
+            if (!blocking) return written;
+            if (np->flushed) {
+                np->flushed = 0;
+                return written;
+            }
+            process_wait(&np->queue);
+            continue;
+        }
+        np->buffer[np->write_pos++] = buffer[written++];
+        np->write_pos %= PIPE_SIZE;
+    }
+    if (blocking) process_wakeup_all(&np->queue);
+    np->flushed = 0;
+    return written;
+}
+
+int named_pipe_write(struct named_pipe *np, char *buffer, int size) {
+    return named_pipe_write_internal(np, buffer, size, 1);
+}
+
+int named_pipe_write_nonblock(struct named_pipe *np, char *buffer, int size) {
+    return named_pipe_write_internal(np, buffer, size, 0);
+}
+
+static int named_pipe_read_internal(struct named_pipe *np, char *buffer, int size, int blocking) {
+    if (!np || !buffer) return -1;
+    if (np->flushed) return 0;
+    int read = 0;
+    while (read < size) {
+        np->read_pos %= PIPE_SIZE;
+        if (np->read_pos == np->write_pos) {
+            if (!blocking) return read;
+            if (np->flushed) {
+                np->flushed = 0;
+                return read;
+            }
+            process_wait(&np->queue);
+            continue;
+        }
+        buffer[read++] = np->buffer[np->read_pos++];
+    }
+    if (blocking) process_wakeup_all(&np->queue);
+    np->flushed = 0;
+    return read;
+}
+
+int named_pipe_read(struct named_pipe *np, char *buffer, int size) {
+    return named_pipe_read_internal(np, buffer, size, 1);
+}
+
+int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size) {
+    return named_pipe_read_internal(np, buffer, size, 0);
+}
+
+int named_pipe_size(struct named_pipe *np) {
+    if (!np) return -1;
+    return (np->write_pos - np->read_pos) % PIPE_SIZE;
+}
+
+// automatically increments refcount.
+struct named_pipe *named_pipe_lookup(const char* fname) {
+    struct named_pipe *np = (struct named_pipe *)hash_set_lookup(&named_pipes, hash_string(fname, 0, MAX_NAMED_PIPES));
+    return np ? named_pipe_addref(np) : 0;
+}
+```
+`kernel/syscall_handler.c`:
+```cpp
+// return the priority of the current process.
+int sys_process_pri()
+{
+	return current->node.priority;
+}
+// create a named pipe with the given name. return the fd of the named pipe.
+int sys_make_named_pipe(const char *fname)
+{
+	int fd = process_available_fd(current);
+	if(fd < 0) return KERROR_OUT_OF_OBJECTS;
+	struct named_pipe *existing = named_pipe_lookup(fname);
+	if (existing) {
+		named_pipe_delete(existing); // decrease refcount
+		return KERROR_FILE_EXISTS;
+	}
+	struct named_pipe *np = named_pipe_create(fname);
+	if(!np) return KERROR_OUT_OF_MEMORY;
+	current->ktable[fd] = kobject_create_named_pipe(np);
+	return fd;
+}
+// open a named pipe with the given name. return the fd of the named pipe.
+int sys_open_named_pipe(const char *fname)
+{
+	int fd = process_available_fd(current);
+	if(fd < 0) return KERROR_OUT_OF_OBJECTS;
+	struct named_pipe *np = named_pipe_lookup(fname);
+	if(!np) return KERROR_NOT_FOUND;
+	current->ktable[fd] = kobject_create_named_pipe(np);
+	return fd;
+}
+```
+`library/assignment.h`
+```cpp
+#pragma once
+// block for `seconds` seconds
+void runForSeconds(int seconds);
+```
+`include/library/syscalls.h`
+```cpp
+// run a process with priority `pri`. return the pid of that process.
+int syscall_process_run(int fd, int argc, const char **argv, uint32_t pri);
+// return the priority of the current process.
+int syscall_process_pri();
+// create a named pipe with the given name. return the fd of the named pipe.
+int syscall_make_named_pipe(const char *fname);
+// open a named pipe with the given name. return the fd of the named pipe.
+int syscall_open_named_pipe(const char *fname);
+```
