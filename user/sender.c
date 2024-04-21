@@ -11,5 +11,6 @@ int main(const int argc, const char** argv) {
     const int content_size = strlen(content) + 1;
     syscall_object_write(fd, content, content_size, 0);
     printf("wrote: %s\n", content);
+    syscall_object_close(fd);
     return 0;
 }
