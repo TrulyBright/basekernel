@@ -34,7 +34,7 @@ struct named_pipe *named_pipe_create(const char* fname) {
     np->flushed = 0;
     np->queue.head = 0;
     np->queue.tail = 0;
-    np->refcount = 1;
+    np->refcount = 1; // default refcount is 1
     return np;
 }
 
@@ -46,6 +46,7 @@ struct named_pipe *named_pipe_addref(struct named_pipe *np) {
 void named_pipe_flush(struct named_pipe *np) {
     if (np) {
         np->flushed = 1;
+        process_wakeup_all(&np->queue); // wake up all processes waiting on this named pipe to find out it's flushed.
     }
 }
 
@@ -121,7 +122,7 @@ int named_pipe_read_nonblock(struct named_pipe *np, char *buffer, int size) {
 
 int named_pipe_size(struct named_pipe *np) {
     if (!np) return -1;
-    return (np->write_pos - np->read_pos + PIPE_SIZE) % PIPE_SIZE;
+    return (np->write_pos - np->read_pos) % PIPE_SIZE;
 }
 
 // automatically increments refcount.

@@ -16,11 +16,13 @@ void syscall_debug(const char *str);
 
 void syscall_process_exit(int status);
 int syscall_process_yield();
+// create a new process with the given file descriptor, argument count, arguments, and priority. return the process id.
 int syscall_process_run(int fd, int argc, const char **argv, uint32_t pri);
 int syscall_process_wrun(int fd, int argc, const char **argv,  int * fds, int fd_len);
 int syscall_process_fork();
 int syscall_process_exec(int fd, int argc, const char **argv);
 int syscall_process_self();
+// return the priority of the current process.
 int syscall_process_pri();
 int syscall_process_parent();
 int syscall_process_kill(unsigned int pid);
@@ -28,8 +30,6 @@ int syscall_process_reap(unsigned int pid);
 int syscall_process_wait(struct process_info *info, int timeout);
 int syscall_process_sleep(unsigned int ms);
 int syscall_process_stats(struct process_stats *s, unsigned int pid);
-int syscall_make_named_pipe(const char *fname);
-int syscall_open_named_pipe(const char *fname);
 extern void *syscall_process_heap(int a);
 
 /* Syscalls that open or create new kernel objects for this process. */
@@ -39,6 +39,10 @@ int syscall_open_dir( int fd, const char *path, kernel_flags_t flags );
 int syscall_open_window(int fd, int x, int y, int w, int h);
 int syscall_open_console(int fd);
 int syscall_open_pipe();
+// create a named pipe with the given name. return its file descriptor.
+int syscall_make_named_pipe(const char *fname);
+// open a named pipe with the given name. return its file descriptor.
+int syscall_open_named_pipe(const char *fname);
 
 /* Syscalls that manipulate kernel objects for this process. */
 

@@ -39,6 +39,7 @@ struct kobject *kobject_create_device(struct device *d);
 struct kobject *kobject_create_window(struct window *g);
 struct kobject *kobject_create_console(struct console *c);
 struct kobject *kobject_create_pipe(struct pipe *p);
+// get a named pipe. return a kobject whose type is KOBJECT_NAMED_PIPE and data is the named pipe.
 struct kobject *kobject_create_named_pipe(struct named_pipe *p);
 struct kobject *kobject_create_event();
 
